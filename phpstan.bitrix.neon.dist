@@ -1,0 +1,13 @@
+# Opt-in profile for a licensed Bitrix installation. BITRIX_ROOT is the
+# document root that contains bitrix/modules; sources are scanned, not executed.
+parameters:
+    level: 5
+    paths:
+        - lib
+    scanDirectories:
+        - %env.BITRIX_ROOT%/bitrix/modules/main/lib
+        - %env.BITRIX_ROOT%/bitrix/modules/main/classes/general
+        - %env.BITRIX_ROOT%/bitrix/modules/crm/lib
+        - %env.BITRIX_ROOT%/bitrix/modules/crm/classes/general
+    treatPhpDocTypesAsCertain: false
+    tmpDir: var/phpstan-bitrix

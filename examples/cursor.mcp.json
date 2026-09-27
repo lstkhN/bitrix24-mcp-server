@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bitrix24-mcp": {
+      "command": "ssh",
+      "args": [
+        "bitrix@your-server.example",
+        "php /path/to/bitrix/local/modules/bitrix24.mcp/cli/server.php"
+      ]
+    }
+  }
+}

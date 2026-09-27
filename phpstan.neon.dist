@@ -1,0 +1,8 @@
+parameters:
+    level: 5
+    paths:
+        - lib
+    bootstrapFiles:
+        - tests/Stubs/BitrixStubs.php
+    treatPhpDocTypesAsCertain: false
+    tmpDir: var/phpstan

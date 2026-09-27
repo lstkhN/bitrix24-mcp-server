@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  ci:
+    name: PHP ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bitrix24.mcp
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.1", "8.2"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: json, pdo, mbstring, curl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer validate --no-check-publish
+      - name: PHP Lint (lib + tests)
+        run: find lib tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      # Live Bitrix Box/Cloud tests require BITRIX24_RUN_INTEGRATION=1 and are
+      # intentionally excluded from the ordinary, credential-free CI workflow.
+      - run: composer test

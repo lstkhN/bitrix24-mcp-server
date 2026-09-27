@@ -1,0 +1,47 @@
+# Composer
+/vendor/
+composer.phar
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+/local/logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+/cache/
+/var/
+/.phpunit.cache/
+
+# Config examples (keep .example files, ignore actual configs)
+/.env*
+!/.env.example
+/.mcp.json
+/.cursorrules
+/CLAUDE.md
+
+# Keep examples
+!.mcp.json.example
+!.cursorrules.example
+
+# Settings
+/.settings.php
+
+# Test files
+/tests/_output/
+phpunit.xml
+.phpunit.result.cache
+/.phpunit.cache/
+
+# Temporary files
+*.tmp
+*.temp
