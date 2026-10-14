@@ -1,82 +1,74 @@
 # Bitrix24 MCP Server
 
-**Read-only Model Context Protocol server for Bitrix24 Box.** Connect Claude Code, Cursor, and
-other MCP-compatible AI assistants to a Bitrix24 On-Premise ("Box") instance
-for controlled inspection of its CRM, code, database schema, and project
-structure. It speaks JSON-RPC 2.0 over SSH stdio or authenticated HTTP.
+MCP-сервер для **коробочной версии Bitrix24**. Он позволяет Claude Code, Cursor и другим MCP-клиентам безопасно читать данные CRM, структуру базы данных и исходный код проекта через протокол Model Context Protocol (MCP).
 
-**Public name:** Bitrix24 MCP Server. The Composer package is `bitrix24/mcp`. For
-installed Bitrix24 instances, the module directory and ID are `bitrix24.mcp`;
-the PHP namespace is `Bitrix24\Mcp`.
+Пакет Composer: `bitrix24/mcp`<br>
+ID модуля Bitrix: `bitrix24.mcp`<br>
+PHP namespace: `Bitrix24\Mcp`
 
-> **Production scope:** Bitrix24 Box with D7, running on the same server as
-> Bitrix24. Bitrix24 Cloud is not a drop-in MCP deployment; see
-> [Cloud vs Box](#cloud-vs-box).
+> **Важно:** проект предназначен для Bitrix24 Box и устанавливается на тот же сервер, где работает Bitrix24. Это не готовый MCP-коннектор для Bitrix24 Cloud. Cloud REST-адаптер является отдельным заделом; см. [`docs/rest-adapter.md`](docs/rest-adapter.md).
 
-## Features
+## Возможности
 
-- **Read-only CRM tools** — list and inspect leads, deals, contacts, companies,
-  activities, and timeline entries without modifying any data.
-- **Code intelligence** — search project files, inspect PHP classes via
-  reflection, list components and event handlers.
-- **Database access** — schema inspection and SELECT queries without explicit
-  DML, with row/time limits (not a SQL sandbox).
-- **Business process reader** — view bizproc templates, instances, and tasks.
-- **MCP resources** — project structure, D7 documentation, coding standards.
-- **Two transports** — stdio over SSH (recommended for development) and
-  Streamable HTTP with Bearer authentication.
+- чтение лидов, сделок, контактов и компаний;
+- чтение CRM-активностей и записей таймлайна;
+- получение схемы CRM и схемы MySQL через `INFORMATION_SCHEMA`;
+- поиск по файлам проекта и чтение разрешённых файлов;
+- анализ PHP-классов через reflection;
+- список установленных модулей, компонентов и обработчиков событий;
+- чтение шаблонов, экземпляров, задач и истории бизнес-процессов;
+- MCP-ресурсы с картой проекта, документацией D7 и стандартами разработки;
+- два транспорта: stdio через SSH и Streamable HTTP с Bearer-токеном;
+- HTTP-сессии MCP с привязкой к токену и ограничение доступа к инструментам по scope.
 
-## Cloud vs Box
+**Сервер не содержит операций записи в CRM.** Не используйте `sql_query` как способ изменения данных: он предназначен для read-oriented `SELECT` и не является полноценной SQL-песочницей.
 
-| Capability | Box (On-Premise) | Cloud |
-|---|---|---|
-| Supported MCP deployment | ✅ Yes — module runs beside Bitrix24 | ❌ No — no Cloud MCP endpoint is provided |
-| Full toolset (files, DB, reflection) | ✅ Yes — direct server access | ❌ No shell or database access |
-| CRM tools exposed by this MCP server | ✅ Read-only D7 tools | ❌ Not exposed as Cloud MCP tools |
-| REST adapter | N/A | ⚠️ Library foundation; inbound-webhook calls can be used separately |
-| OAuth authorization-code callback/exchange/refresh | N/A | ❌ Not integrated or deployable yet |
-| OAuth connection/token persistence | N/A | ⚠️ Storage/security building blocks exist, but no end-to-end OAuth lifecycle |
+## Требования
 
-**Bottom line:** install this module for a Box instance. Cloud code is
-foundation work, not a supported Cloud CRM MCP integration. For the current
-Cloud REST design and limits, see [`docs/rest-adapter.md`](docs/rest-adapter.md).
+- PHP 8.1 или новее;
+- Bitrix24 Box с D7 и возможностью устанавливать локальные модули;
+- Composer;
+- для stdio — SSH-доступ к серверу Bitrix24;
+- для HTTP — HTTPS и возможность подключить endpoint или роут Bitrix.
 
-## Requirements
+## Установка
 
-- PHP ≥ 8.1
-- Bitrix24 with D7 and ability to install local modules
-- For HTTP: HTTPS domain with ability to add a route/endpoint
-- For stdio: SSH access to the Bitrix24 server (recommended for development)
+1. Скопируйте репозиторий в каталог модуля:
 
-## Install and use
+   ```text
+   /local/modules/bitrix24.mcp/
+   ```
 
-1. Place the module directory as `local/modules/bitrix24.mcp/` in a **Box** installation.
-2. Install Composer dependencies:
+2. Установите зависимости на сервере Bitrix24:
 
    ```bash
    cd /path/to/bitrix/local/modules/bitrix24.mcp
    composer install --no-dev --prefer-dist --optimize-autoloader
    ```
 
-3. In Bitrix24 admin, go to **Marketplace → Installed Solutions**
-   (`/bitrix/admin/partner_modules.php`), find **Bitrix24 MCP Server**
-   and click "Install".
-4. Installation generates a random Bearer token and creates `/local/logs`.
-   Keep the token out of Git, chat messages, and shell history.
+3. В административной панели откройте **Marketplace → Установленные решения** (`/bitrix/admin/partner_modules.php`), найдите **Bitrix24 MCP Server** и нажмите **Установить**.
 
-Choose one transport below, add its client configuration, then verify the
-connection with `tools/list`. For development, SSH stdio is the recommended
-choice because it does not publish an HTTP endpoint.
+   Установка зарегистрирует модуль, создаст `/local/logs`, сгенерирует случайный Bearer-токен и сохранит настройки модуля. Токен не следует помещать в Git, тикеты, чаты или shell history.
 
-To get the current HTTP token, run `cli/generate-config.php` from the Bitrix
-environment. The script prints the token, so run it only in a secure console.
+4. Проверьте модуль:
 
-## Transports
+   ```bash
+   php /path/to/bitrix/local/modules/bitrix24.mcp/cli/test-connection.php
+   ```
 
-### stdio via SSH
+5. При необходимости получите токен и готовые примеры конфигурации:
 
-`cli/server.php` runs MCP over stdin/stdout. The client connects via SSH, so
-no HTTP port needs to be exposed:
+   ```bash
+   php /path/to/bitrix/local/modules/bitrix24.mcp/cli/generate-config.php
+   ```
+
+   Скрипт выводит секрет в консоль, поэтому запускайте его только в защищённом окружении. Он также может сохранить примеры в `/local/.mcp.json.example` и `/local/.cursorrules.example`.
+
+## Подключение к MCP-клиенту
+
+### Вариант 1: stdio через SSH (рекомендуется для разработки)
+
+Этот способ не открывает MCP endpoint наружу: клиент запускает `server.php` по SSH.
 
 ```json
 {
@@ -92,17 +84,45 @@ no HTTP port needs to be exposed:
 }
 ```
 
-### Streamable HTTP
+Конфигурацию для Claude Code положите в `.mcp.json`, для Cursor используйте пример [`examples/cursor.mcp.json`](examples/cursor.mcp.json). В примерах нет приватных ключей и секретов; SSH должен быть настроен отдельно, например через `~/.ssh/config`.
 
-Two options:
+Проверка без вызова инструментов:
 
-1. Copy `public/mcp-endpoint.php` to `/local/mcp/index.php` and use
-   `https://example.com/local/mcp/`. Supports POST JSON-RPC, GET SSE keep-alive,
-   DELETE session termination; all methods except OPTIONS require
-   `Authorization: Bearer <token>`.
+```bash
+printf '%s\n%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"1.0"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+| ssh bitrix@your-server.example \
+    'php /path/to/bitrix/local/modules/bitrix24.mcp/cli/server.php'
+```
 
-2. Connect `routes/mcp.php` to your Bitrix route config and use
-   `POST https://example.com/api/mcp/`. POST only; GET and DELETE return 405.
+Ожидаются ответы JSON-RPC с идентификаторами `1` и `2`. Команда намеренно не вызывает инструменты.
+
+### Вариант 2: Streamable HTTP
+
+#### Публичный endpoint
+
+Скопируйте `public/mcp-endpoint.php` в `/local/mcp/index.php`. Адресом MCP будет:
+
+```text
+https://example.com/local/mcp/
+```
+
+Endpoint принимает POST JSON-RPC, поддерживает GET для SSE keep-alive и DELETE для завершения сессии. Все методы, кроме OPTIONS, требуют заголовок `Authorization: Bearer <TOKEN>`.
+
+#### Роут Bitrix
+
+Подключите `routes/mcp.php` в конфигурации маршрутов Bitrix. Файл регистрирует:
+
+```text
+POST   /api/mcp/   — JSON-RPC запросы
+GET    /api/mcp/   — SSE endpoint (в текущей реализации 405)
+DELETE /api/mcp/   — завершение сессии (в текущей реализации 405)
+```
+
+Для Bitrix с маршрутизацией скопируйте файл в `/local/routes/mcp.php` и добавьте его в список конфигураций роутера (`web.php`, `mcp.php`) согласно настройкам конкретной установки.
+
+Пример запроса:
 
 ```bash
 curl -sS https://example.com/local/mcp/ \
@@ -111,136 +131,151 @@ curl -sS https://example.com/local/mcp/ \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-## Client Configuration
+Для HTTP-клиента используйте URL endpoint и заголовок `Authorization`. Не передавайте токен в URL.
 
-### Claude Code
+## Доступные инструменты
 
-Ready-to-copy stdio example: [`examples/claude-code.mcp.json`](examples/claude-code.mcp.json).
+Точный JSON Schema всегда возвращается методом `tools/list`.
 
-For HTTP:
+| Инструмент | Назначение | Ограничения |
+|---|---|---|
+| `database_schema` | Схема таблиц MySQL | Только чтение |
+| `crm_schema` | Поля, пользовательские поля и статусы CRM | Только чтение |
+| `crm_entity_list` | Списки лидов, сделок, контактов и компаний | До 100 записей за вызов |
+| `crm_entity_get` | Одна CRM-сущность по ID | Только чтение |
+| `crm_activity_list` | Активности CRM | Только чтение |
+| `crm_timeline_list` | Записи таймлайна CRM | Только чтение |
+| `bizproc_reader` | Шаблоны, экземпляры, задачи и история бизнес-процессов | Только чтение |
+| `modules_list` | Установленные модули и их версии | Только чтение |
+| `code_search` | Поиск текста или регулярного выражения в проекте | Ограничиваются глубина и число файлов |
+| `class_inspector` | Анализ PHP-классов | Только чтение |
+| `components_list` | Компоненты, шаблоны и параметры Bitrix | Только чтение |
+| `event_handlers` | Зарегистрированные обработчики событий | Только чтение |
+| `file_reader` | Чтение разрешённых файлов построчно | По умолчанию максимум 1 MiB |
+| `sql_query` | Read-oriented `SELECT` | До 200 строк, запрос до 5000 символов, около 30 секунд |
 
-```json
-{
-  "mcpServers": {
-    "bitrix24-mcp": {
-      "url": "https://example.com/local/mcp/",
-      "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
-      }
-    }
-  }
-}
+Фактический набор зависит от точки входа и политик доступа. Операции записи CRM и произвольный DML не предоставляются.
+
+## MCP-ресурсы
+
+Сервер публикует ресурсы для:
+
+- структуры проекта;
+- документации Bitrix D7;
+- стандартов разработки проекта.
+
+После `initialize` клиент должен использовать MCP-сессию. Запросы `tools/list`, `tools/call`, `resources/list` и `resources/read` через HTTP требуют действительный `Mcp-Session-Id`, привязанный к текущему Bearer-токену.
+
+## Права и scopes
+
+MCP-клиент выполняет запросы с правами PHP/пользователя Bitrix, под которыми запущен сервер. Bearer-токен подтверждает доступ к endpoint, но не заменяет сетевую изоляцию и права ОС/Bitrix.
+
+Для минимальных прав можно задать опцию модуля `auth_scopes` в виде JSON-массива или списка через запятую:
+
+```text
+["crm:read","tools:list","resources:read"]
 ```
 
-### Cursor
+Поддерживаемые scopes:
 
-Ready-to-copy stdio example: [`examples/cursor.mcp.json`](examples/cursor.mcp.json).
+| Scope | Доступ |
+|---|---|
+| `tools:list` | `tools/list` |
+| `resources:read` | `resources/list`, `resources/read` |
+| `crm:read` | CRM-инструменты только для чтения |
+| `db:read` | `database_schema`, `sql_query` |
+| `files:read` | `file_reader` |
+| `code:read` | `code_search` |
+| `bizproc:read` | `bizproc_reader` |
 
-## Tools
+Подробности миграции и совместимости старых установок: [`docs/security.md`](docs/security.md). Для production рекомендуется разрешать только необходимые scopes и отдельно пересмотреть доступ к базе, файлам и исходному коду.
 
-Full JSON Schema returned by `tools/list`. Overview:
+## Безопасность
 
-| Tool | Description | Limitations |
-|---|---|---|
-| `database_schema` | MySQL table schema from `INFORMATION_SCHEMA` | Schema read only |
-| `crm_schema` | Fields, custom fields, statuses for CRM entities | Read only |
-| `crm_entity_list` | List leads, deals, contacts, companies | **Read only**, max 100 per call |
-| `crm_entity_get` | Single CRM entity by ID | **Read only** |
-| `crm_activity_list` | CRM activities by entity or filter | **Read only** |
-| `crm_timeline_list` | CRM timeline entries | **Read only** |
-| `modules_list` | Installed modules, versions, paths | Read only |
-| `code_search` | Text/regex search in project files | Read only |
-| `class_inspector` | PHP reflection analysis | Read only |
-| `components_list` | Bitrix components, templates, parameters | Read only |
-| `event_handlers` | Registered event handlers | Read only |
-| `file_reader` | Read project files (allowlisted dirs, line ranges) | Read only |
-| `sql_query` | Read-oriented SELECT queries | **No explicit DML**, 500 rows / 30s limit |
-| `bizproc_reader` | Bizproc templates, instances, tasks, history | Read only; `/api/mcp/` only |
+- Для разработки используйте stdio через SSH, отдельного SSH-пользователя и минимальные права.
+- Для HTTP используйте HTTPS, reverse proxy или VPN и сетевой allowlist.
+- CORS выключен по умолчанию; если он нужен, разрешайте только точные origins через `cors_allowed_origins`.
+- Храните Bearer-токен в secret storage и ротируйте его при подозрении на утечку.
+- `file_reader` работает только с разрешёнными каталогами (`/local/`, `/bitrix/modules/`, `/bitrix/components/`, `/bitrix/templates/`), блокирует traversal, symlink escape и типичные секретные файлы.
+- `sql_query` не является гарантированной защитой от чтения персональных данных и не заменяет отдельного DB-пользователя с правами только `SELECT`.
+- Ограничивайте права на `/local/logs` и очищайте старые журналы.
 
-> **No write operations exist.** CRM tools are strictly read-only. Write
-> workflow design is documented in `docs/crm-write-dry-run.md` but has not
-> been implemented.
+Полный разбор угроз и рекомендаций: [`docs/security.md`](docs/security.md) и [`docs/security-review.md`](docs/security-review.md).
 
-## Security and limits
+## Настройки модуля
 
-This is an inspection tool for trusted operators, not a tenant boundary or a
-safe way to expose Bitrix24 to the internet. Restrict network access, use a
-least-privilege Bitrix/PHP identity, and treat every MCP client with the same
-trust as a user who can request the listed data.
+Настройки хранятся в Bitrix Option system, а не в `.env`. Шаблон находится в [`.env.example`](.env.example). Основные параметры:
 
-- HTTP endpoint is protected by Bearer token from module settings.
-- `hash_equals` is used for token comparison (timing-safe).
-- `file_reader` is restricted to `/local/`, `/bitrix/modules/`,
-  `/bitrix/components/`, `/bitrix/templates/`; `..` traversal is blocked;
-  `dbconn.php` and `.env` files are explicitly forbidden.
-- `sql_query` accepts read-oriented `SELECT` statements; it is not a complete SQL sandbox and must not be exposed to untrusted users.
-- CRM tools respect the permissions of the Bitrix24 identity used by the PHP process; an administrator-level process can read administrator-visible CRM data.
+- `auth_token` — Bearer-токен HTTP;
+- `auth_scopes` — разрешённые scopes;
+- `legacy_auth_full_access` — режим совместимости старых установок;
+- `max_code_search_depth` — глубина поиска (по умолчанию 10);
+- `max_code_search_files` — максимум файлов поиска (по умолчанию 1000);
+- `max_file_size` — максимум файла (по умолчанию 1 MiB);
+- `cache_ttl` — TTL кэша (по умолчанию 3600 секунд);
+- `log_enabled` — включение логирования.
 
-**Known security considerations** (see [`docs/security-review.md`](docs/security-review.md)):
+## Диагностика
 
-- CORS uses `Access-Control-Allow-Origin: *` — not ideal for privileged API
-  (SEC-01).
-- SQL tool uses blacklist filtering; some side-effect queries may pass (SEC-02).
-- File reader loads entire file into memory — no size limit (SEC-03).
-- MCP session IDs are not server-tracked (SEC-05).
+- `401` — отсутствует Bearer-заголовок;
+- `403` — токен недействителен или не хватает scope;
+- `405` — использован неподдерживаемый HTTP-метод для выбранного endpoint;
+- ошибка `Module ... is not installed` — сначала установите модуль через административную панель;
+- ошибка автозагрузки — проверьте `composer install` и наличие `vendor/autoload.php`;
+- ошибка сессии — повторите `initialize` и передайте выданный `Mcp-Session-Id`.
 
-## Testing
+Логи обычно находятся в `/local/logs/`. Не публикуйте их вместе с токенами и данными CRM.
 
-`composer test` runs hermetic unit tests only. Live Box and Cloud-webhook
-checks are deliberately excluded from normal CI and require an explicit local
-opt-in:
+## Тесты и проверки качества
+
+Обычные тесты не обращаются к рабочему Bitrix24:
+
+```bash
+composer test
+composer lint
+composer phpcs
+composer phpstan
+composer quality
+```
+
+Интеграционные проверки запускаются только явно и требуют настроенного окружения:
 
 ```bash
 BITRIX24_RUN_INTEGRATION=1 composer test:integration
 ```
 
-Use disposable or non-production environments and least-privilege secrets.
-The integration suite makes no write calls; the Cloud check is an inbound
-webhook `profile` read, not OAuth or a Cloud MCP CRM test. See
-[docs/integration-tests.md](docs/integration-tests.md).
+Используйте staging или disposable-окружение и минимальные права. Подробнее: [`docs/integration-tests.md`](docs/integration-tests.md).
 
-## Diagnostics
+## Структура проекта
 
-- `401` — missing Bearer header; `403` — invalid token; `405` — wrong HTTP method.
-- Ensure the module is installed, `vendor/autoload.php` is available, PHP ≥ 8.1,
-  and requests have `Content-Type: application/json`.
-
-## Project Structure
-
-```
-bitrix24-mcp-server/
-├── cli/              # CLI scripts (server, config, connection test)
-├── docs/             # Design docs, security review, audit events
-├── examples/         # Client config examples (Cursor, Claude)
-├── lib/              # PHP source
-│   ├── Cloud/        # Bitrix24 Cloud REST adapter
-│   ├── Controller/   # API controller
-│   ├── Resources/    # MCP resources (structure, D7 docs, standards)
-│   ├── Tools/        # MCP tools (CRM, DB, code, file, SQL)
-│   └── Transport/    # stdio and HTTP transports
-├── public/           # HTTP endpoints
-├── routes/           # Bitrix route integration
-├── tests/            # PHPUnit tests
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── LICENSE           # MIT
-└── .env.example
+```text
+cli/              CLI-сервер, диагностика и генерация конфигурации
+lib/              PHP-код модуля
+  Cloud/          REST/OAuth-адаптер Bitrix24 Cloud
+  Controller/     HTTP-контроллер
+  Resources/      MCP-ресурсы
+  Security/       политика scopes
+  Session/        хранилища MCP-сессий
+  Tools/          MCP-инструменты
+  Transport/      stdio и HTTP-транспорт
+public/           готовая HTTP-точка входа
+routes/           интеграция с роутером Bitrix
+docs/             безопасность, схемы и проектная документация
+examples/         конфигурации Claude Code и Cursor
+tests/            PHPUnit-тесты
+install/          установщик модуля
 ```
 
-### Local quality checks
+## Документация
 
-```bash
-composer test         # Hermetic PHPUnit unit tests
-composer phpstan      # Static analysis
-composer phpcs        # Code style (PSR-12)
-composer quality      # Static analysis and code style
-```
+- [`docs/security.md`](docs/security.md) — модель безопасности и scopes;
+- [`docs/security-review.md`](docs/security-review.md) — известные риски и review;
+- [`docs/rest-adapter.md`](docs/rest-adapter.md) — границы Cloud REST-адаптера;
+- [`docs/integration-tests.md`](docs/integration-tests.md) — интеграционные тесты;
+- [`docs/audit-events.md`](docs/audit-events.md) — аудит событий;
+- [`CHANGELOG.md`](CHANGELOG.md) — история изменений;
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — правила разработки.
 
-## License
+## Лицензия
 
-This project is released under the [MIT License](LICENSE). Copyright © 2025 Bitrix24 Team.
-
-You may use, modify, redistribute, and sublicense the software under the MIT
-terms. Keep the copyright and license notice in redistributed copies. Bitrix24,
-Claude, and Cursor remain trademarks/products of their respective owners and
-are not affiliated with this project.
+Проект распространяется по лицензии [MIT](LICENSE). Copyright © 2025 Bitrix24 Team.
